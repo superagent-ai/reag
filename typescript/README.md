@@ -21,6 +21,7 @@ import { openai } from "@ai-sdk/openai";
 // Initialize the SDK with required options
 const client = new ReagClient({
   model: openai("o3-mini", { structuredOutputs: true }),
+  filtrationModel: openai("minimax", { structuredOutputs: true }),
   // system: optional system prompt here or use the default
 });
 
@@ -62,6 +63,7 @@ Initialize the client by providing required configuration options:
 ```typescript
 const client = new ReagClient({
   model: openai("o3-mini", { structuredOutputs: true }),
+  filtrationModel: openai("minimax", { structuredOutputs: true }),
   system?: string // Optional system prompt
   batchSize?: number // Optional batch size
   schema?: z.ZodSchema // Optional schema

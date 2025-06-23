@@ -39,12 +39,14 @@ class ReagClient:
     def __init__(
         self,
         model: str = "gpt-4o-mini",
+        filtration_model: str = "minimax",
         system: str = None,
         batch_size: int = DEFAULT_BATCH_SIZE,
         schema: Optional[BaseModel] = None,
         model_kwargs: Optional[Dict] = None,
     ):
         self.model = model
+        self.filtration_model = filtration_model
         self.system = system or REAG_SYSTEM_PROMPT
         self.batch_size = batch_size
         self.schema = schema or ResponseSchemaMessage
@@ -199,46 +201,64 @@ class ReagClient:
                         )
                     )
 
-                # Process all documents in the batch concurrently
-                batch_responses = await asyncio.gather(*tasks)
+                    # Use litellm for model completion with the filtration model
+                    filtration_response = await acompletion(
+                        model=self.filtration_model,
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": prompt},
+                        ],
+                        response_format=self.schema,
+                    )
 
-                # Process the responses
-                for document, response in zip(batch, batch_responses):
-                    message_content = response.choices[0].message.content
+                    filtration_message_content = filtration_response.choices[
+                        0
+                    ].message.content  # Might be a JSON string
 
                     try:
-                        if self.model.startswith("ollama/"):
-                            content, reasoning, is_irrelevant = self._extract_think_content(message_content)
-                            results.append(
-                                QueryResult(
-                                    content=content,
-                                    reasoning=reasoning,
-                                    is_irrelevant=is_irrelevant,
-                                    document=document,
-                                )
-                            )
-                        else:
-                            # Ensure it's parsed as a dict
-                            data = (
-                                json.loads(message_content)
-                                if isinstance(message_content, str)
-                                else message_content
-                            )
+                        # Ensure it's parsed as a dict
+                        filtration_data = (
+                            json.loads(filtration_message_content)
+                            if isinstance(filtration_message_content, str)
+                            else filtration_message_content
+                        )
 
-                            if data["source"].get("is_irrelevant", True):
-                                continue
+                        if filtration_data["source"].get("is_irrelevant", True):
+                            continue
 
-                            results.append(
-                                QueryResult(
-                                    content=data["source"].get("content", ""),
-                                    reasoning=data["source"].get("reasoning", ""),
-                                    is_irrelevant=data["source"].get("is_irrelevant", False),
-                                    document=document,
-                                )
+                        # Use litellm for model completion with the reasoning model
+                        reasoning_response = await acompletion(
+                            model=self.model,
+                            messages=[
+                                {"role": "system", "content": system},
+                                {"role": "user", "content": prompt},
+                            ],
+                            response_format=self.schema,
+                        )
+
+                        reasoning_message_content = reasoning_response.choices[
+                            0
+                        ].message.content  # Might be a JSON string
+
+                        reasoning_data = (
+                            json.loads(reasoning_message_content)
+                            if isinstance(reasoning_message_content, str)
+                            else reasoning_message_content
+                        )
+
+                        results.append(
+                            QueryResult(
+                                content=reasoning_data["source"].get("content", ""),
+                                reasoning=reasoning_data["source"].get("reasoning", ""),
+                                is_irrelevant=reasoning_data["source"].get(
+                                    "is_irrelevant", False
+                                ),
+                                document=document,
                             )
                     except json.JSONDecodeError:
-                        print("Error: Could not parse response:", message_content)
-                        continue
+                        print("Error: Could not parse response:", filtration_message_content)
+                        continue  # Skip this iteration if parsing fails
+
 
             return results
 

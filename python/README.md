@@ -38,7 +38,8 @@ Initialize the client by providing required configuration options:
 
 ```typescript
 client = new ReagClient(
-  model: "gpt-4o-mini", // LiteLLM model name
+  model: "gpt-4.1-nano", // LiteLLM model name
+  filtration_model: "minimax", // Filtration model name
   system: Optional[str] // Optional system prompt
   batchSize: Optional[Number] // Optional batch size
   schema: Optional[BaseModel] // Optional Pydantic schema

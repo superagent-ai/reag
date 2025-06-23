@@ -17,6 +17,11 @@ export interface ClientOptions {
    */
   model: LanguageModel;
   /**
+   * The filtration model instance to use for document filtration.
+   * This should be an instance of a model that implements the Vercel AI SDK's LanguageModel interface.
+   */
+  filtrationModel: LanguageModel;
+  /**
    * The system prompt that provides context and instructions to the model.
    * This string sets the behavior and capabilities of the model for all queries.
    */
@@ -69,6 +74,7 @@ const DEFAULT_BATCH_SIZE = 20;
  */
 export class ReagClient {
   private readonly model: LanguageModel;
+  private readonly filtrationModel: LanguageModel;
   private readonly system: string;
   private readonly batchSize: number;
   private readonly schema: z.ZodSchema;
@@ -79,6 +85,7 @@ export class ReagClient {
    */
   constructor(options: ClientOptions) {
     this.model = options.model;
+    this.filtrationModel = options.filtrationModel;
     this.system = options.system || REAG_SYSTEM_PROMPT;
     this.batchSize = options.batchSize || DEFAULT_BATCH_SIZE;
     this.schema = options.schema || RESPONSE_SCHEMA;
@@ -171,7 +178,23 @@ export class ReagClient {
               const system = `${
                 this.system
               }\n\n# Available source\n\n${formatDoc(document)}`;
-              const response = await generateObject({
+
+              // Use the filtration model for document filtration
+              const filtrationResponse = await generateObject({
+                model: this.filtrationModel,
+                system,
+                prompt,
+                schema: this.schema,
+              });
+
+              const filtrationData = filtrationResponse.object;
+
+              if (filtrationData.isIrrelevant) {
+                return null;
+              }
+
+              // Use the reasoning model for generating the final answer
+              const reasoningResponse = await generateObject({
                 model: this.model,
                 system,
                 prompt,
@@ -179,12 +202,13 @@ export class ReagClient {
               });
 
               return {
-                response,
+                response: reasoningResponse,
                 document,
               };
             })
           );
-          return batchResponses;
+
+          return batchResponses.filter((response) => response !== null);
         })
       );
 
