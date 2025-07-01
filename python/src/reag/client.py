@@ -5,9 +5,13 @@ import re
 from typing import List, Optional, TypeVar, Dict, Union
 from pydantic import BaseModel
 from litellm import acompletion
+from traceloop.sdk import Traceloop
+from traceloop.sdk.decorators import workflow
 
 from reag.prompt import REAG_SYSTEM_PROMPT
 from reag.schema import ResponseSchemaMessage
+
+Traceloop.init()
 
 
 class Document(BaseModel):
@@ -154,6 +158,7 @@ class ReagClient:
         
         return content, reasoning, is_irrelevant
 
+    @workflow(name="query_documents")
     async def query(
         self, prompt: str, documents: List[Document], options: Optional[Dict] = None
     ) -> List[QueryResult]:
