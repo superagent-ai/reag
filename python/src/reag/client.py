@@ -5,6 +5,7 @@ import re
 from typing import List, Optional, TypeVar, Dict, Union
 from pydantic import BaseModel
 from litellm import acompletion
+import litellm
 
 from reag.prompt import REAG_SYSTEM_PROMPT
 from reag.schema import ResponseSchemaMessage
@@ -50,6 +51,9 @@ class ReagClient:
         self.schema = schema or ResponseSchemaMessage
         self.model_kwargs = model_kwargs or {}
         self._http_client = None
+        
+        # Configure LiteLLM to use AgentOps
+        litellm.success_callback = ["agentops"]
 
     async def __aenter__(self):
         self._http_client = httpx.AsyncClient()
