@@ -29,6 +29,10 @@ python = ">=3.9,<3.13"
 pydantic = "^2.0.0"
 httpx = "^0.25.0"
 litellm = "^1.60.0"
+agentops = {version = "^0.3.0", optional = true}
+
+[tool.poetry.extras]
+agentops = ["agentops"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
