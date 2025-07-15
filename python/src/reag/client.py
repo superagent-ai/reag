@@ -4,6 +4,29 @@ import json
 import re
 from typing import List, Optional, TypeVar, Dict, Union
 from pydantic import BaseModel
+
+try:
+    import agentops
+    from agentops.sdk.decorators import agent, operation, tool
+    AGENTOPS_AVAILABLE = True
+except ImportError:
+    AGENTOPS_AVAILABLE = False
+    
+    def agent(*args, **kwargs):
+        def decorator(cls):
+            return cls
+        return decorator
+    
+    def operation(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    
+    def tool(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from litellm import acompletion
 
 from reag.prompt import REAG_SYSTEM_PROMPT
@@ -35,6 +58,7 @@ class QueryResult(BaseModel):
 DEFAULT_BATCH_SIZE = 20
 
 
+@agent(name="ReagClient")
 class ReagClient:
     def __init__(
         self,
@@ -59,6 +83,7 @@ class ReagClient:
         if self._http_client:
             await self._http_client.aclose()
 
+    @operation
     def _filter_documents_by_metadata(
         self, documents: List[Document], filters: Optional[List[MetadataFilter]] = None
     ) -> List[Document]:
@@ -129,6 +154,7 @@ class ReagClient:
 
         return filtered_docs
 
+    @operation
     def _extract_think_content(self, text: str) -> tuple[str, str, bool]:
         """Extract content from think tags and parse the bulleted response format."""
         # Extract think content
@@ -154,6 +180,7 @@ class ReagClient:
         
         return content, reasoning, is_irrelevant
 
+    @operation
     async def query(
         self, prompt: str, documents: List[Document], options: Optional[Dict] = None
     ) -> List[QueryResult]:

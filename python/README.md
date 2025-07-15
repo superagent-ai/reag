@@ -9,6 +9,13 @@
    poetry add reag
    ```
 
+3. For AgentOps integration, install with the optional dependency:
+   ```bash
+   pip install reag[agentops]
+   # or
+   poetry add reag[agentops]
+   ```
+
 ## Quick Start
 ```python
 from reag.client import ReagClient, Document
@@ -30,6 +37,65 @@ async with ReagClient(
         response = await client.query("What is Superagent?", documents=docs)
 
 ```
+
+## AgentOps Integration
+
+ReAG supports AgentOps for monitoring and tracing your agent workflows. To enable AgentOps integration:
+
+1. Install ReAG with AgentOps support:
+   ```bash
+   pip install reag[agentops]
+   ```
+
+2. Initialize AgentOps before using ReAG:
+   ```python
+   import reag
+   
+   # Initialize AgentOps
+   reag.init_agentops(
+       api_key="your-agentops-api-key",  # or set AGENTOPS_API_KEY env var
+       tags=["reag", "rag", "llm"],
+       trace_name="My ReAG Workflow"
+   )
+   
+   # Use ReAG as normal - it will automatically track LLM calls and operations
+   from reag.client import ReagClient, Document
+   
+   async with ReagClient(model="gpt-4o-mini") as client:
+       docs = [Document(name="test", content="test content")]
+       response = await client.query("What is this about?", documents=docs)
+   ```
+
+3. For advanced usage with manual trace management:
+   ```python
+   import reag
+   import agentops
+   
+   # Initialize without auto-starting session
+   reag.init_agentops(
+       api_key="your-agentops-api-key",
+       auto_start_session=False
+   )
+   
+   # Manually manage traces
+   tracer = agentops.start_trace(trace_name="Custom Workflow", tags=["custom"])
+   
+   try:
+       async with ReagClient(model="gpt-4o-mini") as client:
+           docs = [Document(name="test", content="test content")]
+           response = await client.query("What is this about?", documents=docs)
+       
+       agentops.end_trace(tracer, end_state="Success")
+   except Exception as e:
+       agentops.end_trace(tracer, end_state="Fail")
+       raise
+   ```
+
+The AgentOps integration automatically tracks:
+- LLM calls made through LiteLLM
+- Document filtering operations
+- Query processing operations
+- Content extraction operations
 
 ## API Reference
 
