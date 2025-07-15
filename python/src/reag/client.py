@@ -4,6 +4,11 @@ import json
 import re
 from typing import List, Optional, TypeVar, Dict, Union
 from pydantic import BaseModel
+try:
+    import agentops
+    _AGENTOPS_AVAILABLE = True
+except ImportError:
+    _AGENTOPS_AVAILABLE = False
 from litellm import acompletion
 
 from reag.prompt import REAG_SYSTEM_PROMPT
@@ -36,6 +41,18 @@ DEFAULT_BATCH_SIZE = 20
 
 
 class ReagClient:
+    """
+    ReAG (Reasoning Augmented Generation) client for querying documents.
+    
+    AgentOps Integration:
+    To enable AgentOps monitoring, provide your AgentOps API key:
+    
+    client = ReagClient(
+        agentops_api_key="your-api-key-here",
+        agentops_tags=["reag", "production"],
+        agentops_auto_start_session=True
+    )
+    """
     def __init__(
         self,
         model: str = "gpt-4o-mini",
@@ -43,6 +60,9 @@ class ReagClient:
         batch_size: int = DEFAULT_BATCH_SIZE,
         schema: Optional[BaseModel] = None,
         model_kwargs: Optional[Dict] = None,
+        agentops_api_key: Optional[str] = None,
+        agentops_tags: Optional[List[str]] = None,
+        agentops_auto_start_session: bool = True,
     ):
         self.model = model
         self.system = system or REAG_SYSTEM_PROMPT
@@ -50,6 +70,13 @@ class ReagClient:
         self.schema = schema or ResponseSchemaMessage
         self.model_kwargs = model_kwargs or {}
         self._http_client = None
+        
+        if _AGENTOPS_AVAILABLE and agentops_api_key:
+            agentops.init(
+                api_key=agentops_api_key,
+                tags=agentops_tags or ["reag"],
+                auto_start_session=agentops_auto_start_session,
+            )
 
     async def __aenter__(self):
         self._http_client = httpx.AsyncClient()
